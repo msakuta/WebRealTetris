@@ -6,6 +6,13 @@ var height;
 var minimapCanvas;
 var stage;
 var shape;
+var rs = new Xor128();
+
+var MAX_BLOCK_WIDTH = 50;
+var MAX_BLOCK_HEIGHT = 50;
+var MIN_BLOCK_WIDTH = 10;
+var MIN_BLOCK_HEIGHT = 10;
+var InitBlockRate = 0.5;
 
 function Block(l, t, r, b){
 	this.l = l;
@@ -43,7 +50,7 @@ Block.prototype.slipDown = function(ig, dest){
 	var min = dest;
 
 	for(var i = 0; i < block_list.length; i++){
-		if(i != ig && this.l < block_list[i].r && block_list[i].l < this.r && this.b <= block_list[i].t && block_list[i].t < min){
+		if(i !== ig && this.l < block_list[i].r && block_list[i].l < this.r && this.b <= block_list[i].t && block_list[i].t < min){
 			ret = i;
 			min = block_list[i].t;
 		}
@@ -54,6 +61,22 @@ Block.prototype.slipDown = function(ig, dest){
 
 	return ret;
 };
+
+/// Initialize graphics objects associated with this block.
+/// This is not done in the constructor because putting a block to the game
+/// could fail.
+Block.prototype.initGraphics = function(){
+	var g = new createjs.Graphics();
+	g.setStrokeStyle(1);
+	g.beginStroke("#000000");
+	g.beginFill("red");
+	g.rect(0, 0, this.getW(), this.getH());
+	var shape = new createjs.Shape(g);
+	this.graphics = g;
+	this.shape = shape;
+	this.updateGraphics();
+	stage.addChild(shape);
+}
 
 Block.prototype.update = function(){
 	var newbottom = Math.min(height, this.b + 2);
@@ -80,36 +103,92 @@ function animate(timestamp) {
 	requestAnimationFrame(animate);
 }
 
+
+/// Returns intersecting block with a given block.
+/// It scans all blocks in the list.
+/// @param p The block to examine collision with.
+/// @param ig The block index to ignore collision detection.
+/// @return Index of hit object or block_list.length if nothing hits
+function getAt(p, ig){
+	for(var i = 0; i < block_list.length; i++)
+		if(i !== ig && p.l < block_list[i].r && block_list[i].l < p.r && p.t < block_list[i].b && block_list[i].t < p.b)
+			return i;
+
+	return block_list.length;
+}
+
+
+function spawnNextBlock(){
+	var temp = new Block(0, 0, 0, 0);
+	var retries = 0;
+	do{
+		if(100 < retries++)
+			break;
+		temp.r = gs.nextx + (temp.l = rs.nexti() % (width - MIN_BLOCK_WIDTH - gs.nextx));
+//			if(XSIZ < temp.r) temp.r = XSIZ;
+		temp.b = gs.nexty + (temp.t = rand() % (height / 4 - MIN_BLOCK_HEIGHT - gs.nexty));
+//			if(YSIZ < temp.b) temp.r = YSIZ;
+	} while(getAt(temp, null) !== bl.cur);
+//	gs.vx = 0;
+//	AddBlock(&bl, temp.l, temp.t, temp.r, temp.b);
+//	AddTefbox(g_ptefl, temp.l, temp.t, temp.r, temp.b, RGB(0, 0, 128), WG_BLACK, 1.0, 0);
+
+//	gs.nextx = rand() % (MAX_BLOCK_WIDTH - MIN_BLOCK_WIDTH) + MIN_BLOCK_WIDTH;
+//	gs.nexty = rand() % (MAX_BLOCK_HEIGHT - MIN_BLOCK_HEIGHT) + MIN_BLOCK_HEIGHT;
+	return temp;
+}
+
+
+/// Spawn initial blocks.
+function initBlocks(){
+	var c = 10;
+	var k = Math.floor((height - MAX_BLOCK_HEIGHT) * InitBlockRate);
+	var cb = null; /* current block */
+	if(block_list.length !== 0){
+		cb = block_list[block_list.length-1];
+		block_list.pop();
+	}
+	try{
+		while(c--){
+			var tmp = new Block(0,0,0,0);
+			var retries = 0;
+			do{
+				if(100 < retries++)
+					throw "Max retries reached";
+				tmp.l = rs.nexti() % (width - MIN_BLOCK_WIDTH);
+				tmp.t = height - k +
+					rs.nexti() % (k - MIN_BLOCK_HEIGHT - MAX_BLOCK_HEIGHT);
+				tmp.r = tmp.l + MIN_BLOCK_WIDTH + rs.nexti() % (MAX_BLOCK_WIDTH - MIN_BLOCK_WIDTH);
+				if(width < tmp.r) tmp.r = width;
+				tmp.b = tmp.t + MIN_BLOCK_HEIGHT + rs.nexti() % (MAX_BLOCK_HEIGHT - MIN_BLOCK_HEIGHT);
+				if(height < tmp.b) tmp.b = height;
+			} while(getAt(tmp, block_list.length) !== block_list.length && (!cb || !tmp.intersects(cb)));
+			tmp.slipDown(null, height);
+//			AddBlock(&bl, tmp.l, tmp.t, tmp.r, tmp.b);
+			tmp.initGraphics();
+			block_list.push(tmp);
+		}
+	}
+	catch(e){
+		console.write(e);
+	}
+	if(cb){
+		cb.initGraphics();
+		block_list.push(cb);
+	}
+	/*spawnNextBlock()*/;
+}
+
 window.onload = function(){
 	canvas = document.getElementById("stage");
 	canvas.oncontextmenu = function(){return false;};
 	width = parseInt(canvas.style.width);
 	height = parseInt(canvas.style.height);
 
-	var rs = new Xor128();
-
 	stage = new createjs.Stage(canvas);
 	stage.enableMouseOver();
 
-	for(var i = 0; i < 10; i++){
-		var w = rs.nexti() % 100;
-		var h = rs.nexti() % 100;
-		var l = rs.nexti() % (canvas.width - w);
-		var t = rs.nexti() % (canvas.height - h);
-		var block = new Block(l, t, l + w, t + h);
-		block_list.push(block);
-
-		var g = new createjs.Graphics();
-		g.setStrokeStyle(1);
-		g.beginStroke("#000000");
-		g.beginFill("red");
-		g.rect(0, 0, block.getW(), block.getH());
-		var shape = new createjs.Shape(g);
-		block.graphics = g;
-		block.shape = shape;
-		block.updateGraphics();
-		stage.addChild(shape);
-	}
+	initBlocks();
 
 	init();
 }
