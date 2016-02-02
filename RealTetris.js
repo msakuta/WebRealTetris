@@ -5,15 +5,21 @@ var width;
 var height;
 var minimapCanvas;
 var stage;
+var overlay;
+var blockStage;
 var moved = false;
 var nextx;
 var nexty;
+var gameOver = false;
+var clearall = true;
+var gameOverText = null;
 var rs = new Xor128();
 
 var MAX_BLOCK_WIDTH = 50;
 var MAX_BLOCK_HEIGHT = 50;
 var MIN_BLOCK_WIDTH = 10;
 var MIN_BLOCK_HEIGHT = 10;
+var MAX_DELAY = 25; /* maximum block destroying delay */
 var InitBlockRate = 0.5;
 
 function Block(l, t, r, b){
@@ -77,7 +83,7 @@ Block.prototype.initGraphics = function(){
 	this.graphics = g;
 	this.shape = shape;
 	this.updateGraphics();
-	stage.addChild(shape);
+	blockStage.addChild(shape);
 }
 
 Block.prototype.update = function(){
@@ -105,8 +111,28 @@ function animate(timestamp) {
 	moved = false;
 	for(var i = 0; i < block_list.length; i++)
 		block_list[i].update();
-	if(!moved){
-		spawnNextBlock();
+	if(!moved && !gameOver){
+		/* if the top is above the dead line, game is over. */
+		if(block_list.length && block_list[block_list.length-1].t < MAX_BLOCK_HEIGHT){
+//			us.lastbreak = rand() % (NUM_BREAKTYPES + 1);
+			gameOver = true;
+			gameOverText.visible = gameOver;
+/*			{int place;
+			if(0 < (place = PutScore(gs.points)+1)){
+				static char buf[64];
+				us.mdelay = 5000;
+				sprintf(buf, "HIGH SCORE %d%s place!!", place, place == 1 ? "st" : place == 2 ? "nd" : place == 3 ? "rd" : "th");
+				us.message = buf;
+			}}*/
+
+			/* do a firework */
+			if(clearall) for(var j = 0; j < block_list.length; j++){
+				block_list[j].life = rs.nexti() % (MAX_DELAY * 5);
+			}
+		}
+		else{
+			spawnNextBlock();
+		}
 	}
 	stage.update();
 
@@ -199,6 +225,18 @@ window.onload = function(){
 
 	stage = new createjs.Stage(canvas);
 	stage.enableMouseOver();
+
+	blockStage = new createjs.Container();
+	stage.addChild(blockStage);
+	overlay = new createjs.Container();
+	stage.addChild(overlay);
+
+	gameOverText = new createjs.Text("GAME OVER", "bold 40px Arial", "#007f7f");
+	gameOverText.visible = false;
+	overlay.addChild(gameOverText);
+	var bounds = gameOverText.getBounds();
+	gameOverText.x = width / 2 - bounds.width / 2;
+	gameOverText.y = height / 2 - bounds.height / 2;
 
 	setNextBlock();
 	initBlocks();
