@@ -1,4 +1,5 @@
 'use strict';
+(function(){
 
 var canvas;
 var width;
@@ -243,3 +244,5 @@ window.onload = function(){
 
 	init();
 }
+
+})();
