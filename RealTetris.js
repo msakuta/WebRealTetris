@@ -14,6 +14,12 @@ var nexty;
 var gameOver = false;
 var clearall = true;
 var gameOverText = null;
+var keyState = {
+	left: false,
+	up: false,
+	right: false,
+	down: false,
+};
 var rs = new Xor128();
 
 var MAX_BLOCK_WIDTH = 50;
@@ -71,6 +77,41 @@ Block.prototype.slipDown = function(ig, dest){
 	return ret;
 };
 
+/// Update position by tracing intersecting blocks towards left
+Block.prototype.slipLeft = function(ig, dest){
+	var ret = block_list.length;
+	var max = dest;
+
+	for(var i = 0; i < block_list.length; i++){
+		if(i !== ig && this.t < block_list[i].b && block_list[i].t < this.b && block_list[i].r <= this.l && max < block_list[i].r){
+			ret = i;
+			max = block_list[i].r;
+		}
+	}
+
+	this.set(max, this.t);
+
+	return ret;
+}
+
+/// Update position by tracing intersecting blocks towards right
+Block.prototype.slipRight = function(ig, dest){
+	var ret = block_list.length;
+	var min = dest;
+
+	for(var i = 0; i < block_list.length; i++){
+		if(i !== ig && this.t < block_list[i].b && block_list[i].t < this.b && this.r <= block_list[i].l && block_list[i].l < min){
+			ret = i;
+			min = block_list[i].l;
+		}
+	}
+
+	min -= this.r - this.l;
+	this.set(min, this.t);
+
+	return ret;
+}
+
 /// Initialize graphics objects associated with this block.
 /// This is not done in the constructor because putting a block to the game
 /// could fail.
@@ -91,6 +132,15 @@ Block.prototype.update = function(){
 	var oldbottom = this.b;
 	var newbottom = Math.min(height, this.b + 2);
 	this.slipDown(null, newbottom);
+
+	// Only the newest block is controllable
+	if(!gameOver && this === block_list[block_list.length-1]){
+		if(keyState.left)
+			this.slipLeft(-1, Math.max(0, this.l - 2));
+		if(keyState.right)
+			this.slipRight(-1, Math.min(width, this.r + 2));
+	}
+
 	if(oldbottom !== this.b){
 		this.updateGraphics();
 		moved = true;
@@ -105,6 +155,8 @@ Block.prototype.updateGraphics = function(){
 var block_list = [];
 
 function init(){
+	window.addEventListener( 'keydown', onKeyDown, false );
+	window.addEventListener( 'keyup', onKeyUp, false );
 	requestAnimationFrame(animate);
 }
 
@@ -216,6 +268,34 @@ function initBlocks(){
 		block_list.push(cb);
 	}
 	/*spawnNextBlock()*/;
+}
+
+function onKeyDown( event ) {
+	// Annoying browser incompatibilities
+	var code = event.which || event.keyCode;
+	// Also support numpad plus and minus
+	if(code === 37) // left
+		keyState.left = true;
+	if(code === 38) // up
+		keyState.up = true;
+	if(code === 39) // right
+		keyState.right = true;
+	if(code === 40) // down
+		keyState.down = true;
+}
+
+function onKeyUp( event ) {
+	// Annoying browser incompatibilities
+	var code = event.which || event.keyCode;
+	// Also support numpad plus and minus
+	if(code === 37) // left
+		keyState.left = false;
+	if(code === 38) // up
+		keyState.up = false;
+	if(code === 39) // right
+		keyState.right = false;
+	if(code === 40) // down
+		keyState.down = false;
 }
 
 window.onload = function(){
