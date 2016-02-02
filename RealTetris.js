@@ -201,7 +201,8 @@ var block_list = [];
 function init(){
 	window.addEventListener( 'keydown', onKeyDown, false );
 	window.addEventListener( 'keyup', onKeyUp, false );
-	requestAnimationFrame(animate);
+	createjs.Ticker.setFPS(30);
+	createjs.Ticker.addEventListener("tick", animate);
 }
 
 function animate(timestamp) {
@@ -232,8 +233,6 @@ function animate(timestamp) {
 		}
 	}
 	stage.update();
-
-	requestAnimationFrame(animate);
 }
 
 
