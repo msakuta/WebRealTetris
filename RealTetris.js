@@ -5,7 +5,9 @@ var width;
 var height;
 var minimapCanvas;
 var stage;
-var shape;
+var moved = false;
+var nextx;
+var nexty;
 var rs = new Xor128();
 
 var MAX_BLOCK_WIDTH = 50;
@@ -79,9 +81,13 @@ Block.prototype.initGraphics = function(){
 }
 
 Block.prototype.update = function(){
+	var oldbottom = this.b;
 	var newbottom = Math.min(height, this.b + 2);
 	this.slipDown(null, newbottom);
-	this.updateGraphics();
+	if(oldbottom !== this.b){
+		this.updateGraphics();
+		moved = true;
+	}
 }
 
 Block.prototype.updateGraphics = function(){
@@ -96,8 +102,12 @@ function init(){
 }
 
 function animate(timestamp) {
+	moved = false;
 	for(var i = 0; i < block_list.length; i++)
 		block_list[i].update();
+	if(!moved){
+		spawnNextBlock();
+	}
 	stage.update();
 
 	requestAnimationFrame(animate);
@@ -124,18 +134,20 @@ function spawnNextBlock(){
 	do{
 		if(100 < retries++)
 			break;
-		temp.r = gs.nextx + (temp.l = rs.nexti() % (width - MIN_BLOCK_WIDTH - gs.nextx));
-//			if(XSIZ < temp.r) temp.r = XSIZ;
-		temp.b = gs.nexty + (temp.t = rand() % (height / 4 - MIN_BLOCK_HEIGHT - gs.nexty));
-//			if(YSIZ < temp.b) temp.r = YSIZ;
-	} while(getAt(temp, null) !== bl.cur);
-//	gs.vx = 0;
-//	AddBlock(&bl, temp.l, temp.t, temp.r, temp.b);
-//	AddTefbox(g_ptefl, temp.l, temp.t, temp.r, temp.b, RGB(0, 0, 128), WG_BLACK, 1.0, 0);
+		temp.r = nextx + (temp.l = rs.nexti() % (width - MIN_BLOCK_WIDTH - nextx));
+		temp.b = nexty + (temp.t = rs.nexti() % (height / 4 - MIN_BLOCK_HEIGHT - nexty));
+	} while(getAt(temp, -1) !== block_list.length);
+	temp.initGraphics();
+	block_list.push(temp);
 
-//	gs.nextx = rand() % (MAX_BLOCK_WIDTH - MIN_BLOCK_WIDTH) + MIN_BLOCK_WIDTH;
-//	gs.nexty = rand() % (MAX_BLOCK_HEIGHT - MIN_BLOCK_HEIGHT) + MIN_BLOCK_HEIGHT;
+	setNextBlock();
+
 	return temp;
+}
+
+function setNextBlock(){
+	nextx = rs.nexti() % (MAX_BLOCK_WIDTH - MIN_BLOCK_WIDTH) + MIN_BLOCK_WIDTH;
+	nexty = rs.nexti() % (MAX_BLOCK_HEIGHT - MIN_BLOCK_HEIGHT) + MIN_BLOCK_HEIGHT;
 }
 
 
@@ -188,6 +200,7 @@ window.onload = function(){
 	stage = new createjs.Stage(canvas);
 	stage.enableMouseOver();
 
+	setNextBlock();
 	initBlocks();
 
 	init();
