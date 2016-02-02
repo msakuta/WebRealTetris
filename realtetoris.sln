@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 7.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "realtetoris", "realtetoris.vcproj", "{E1DCEF25-8B7F-4D03-B555-9FAF8A923151}"
+EndProject
+Global
+	GlobalSection(SolutionConfiguration) = preSolution
+		ConfigName.0 = Debug
+		ConfigName.1 = Debugj
+		ConfigName.2 = Profile
+		ConfigName.3 = Release
+		ConfigName.4 = Releasej
+	EndGlobalSection
+	GlobalSection(ProjectDependencies) = postSolution
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{E1DCEF25-8B7F-4D03-B555-9FAF8A923151}.Debug.ActiveCfg = Debug|Win32
+		{E1DCEF25-8B7F-4D03-B555-9FAF8A923151}.Debug.Build.0 = Debug|Win32
+		{E1DCEF25-8B7F-4D03-B555-9FAF8A923151}.Debugj.ActiveCfg = Debugj|Win32
+		{E1DCEF25-8B7F-4D03-B555-9FAF8A923151}.Debugj.Build.0 = Debugj|Win32
+		{E1DCEF25-8B7F-4D03-B555-9FAF8A923151}.Profile.ActiveCfg = Profile|Win32
+		{E1DCEF25-8B7F-4D03-B555-9FAF8A923151}.Profile.Build.0 = Profile|Win32
+		{E1DCEF25-8B7F-4D03-B555-9FAF8A923151}.Release.ActiveCfg = Release|Win32
+		{E1DCEF25-8B7F-4D03-B555-9FAF8A923151}.Release.Build.0 = Release|Win32
+		{E1DCEF25-8B7F-4D03-B555-9FAF8A923151}.Releasej.ActiveCfg = Releasej|Win32
+		{E1DCEF25-8B7F-4D03-B555-9FAF8A923151}.Releasej.Build.0 = Releasej|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal
