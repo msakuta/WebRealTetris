@@ -150,7 +150,48 @@ Block.prototype.update = function(){
 	}
 }
 
-Block.prototype.updateGraphics = function(){
+Block.prototype.rotate = function(){
+	this.toggleUp = true;
+	var pb = block_list[block_list.length-1];
+	var newblock = new Block(0,0,0,0);
+	newblock.l = (this.t - this.b + this.l + this.r) / 2; /* rotation math */
+	newblock.t = (this.l - this.r + this.t + this.b) / 2;
+	newblock.r = (this.b - this.t + this.l + this.r) / 2;
+	newblock.b = (this.r - this.l + this.t + this.b) / 2;
+	var i = getAt(newblock, -1);
+	if(i !== block_list.length-1){ /* some blocks got in the way */
+//					var pb = block_list[i];
+//					AddTefbox(g_ptefl, tb.l, tb.t, tb.r, tb.b, RGB(64, 64, 16), WG_BLACK, .5, 0);
+//					AddTefbox(g_ptefl, MAX(pb->l, tb.l), MAX(pb->t, tb.t), MIN(pb->r, tb.r),
+//						MIN(pb->b, tb.b), RGB(192, 192, 32), WG_BLACK, .75, 0);
+	}
+	else{
+		// If a part of rotated block go outside of the stage, force
+		// the position to be inside it.
+		if(newblock.l < 0)
+			newblock.set(0, newblock.t);
+		if(width < newblock.r){
+			newblock.l -= newblock.r - width;
+			newblock.r = width;
+		}
+//					AddTefbox(g_ptefl, pb->l, pb->t, pb->r, pb->b, RGB(0, 128, 64), WG_BLACK, 1., TEF_BORDER);
+		this.l = newblock.l;
+		this.t = newblock.t;
+		this.r = newblock.r;
+		this.b = newblock.b;
+		this.updateGraphics(true);
+	}
+}
+
+Block.prototype.updateGraphics = function(rotated){
+	if(rotated){
+		var g = this.graphics;
+		g.clear();
+		g.setStrokeStyle(1);
+		g.beginStroke("#000000");
+		g.beginFill("red");
+		g.rect(0, 0, this.getW(), this.getH());
+	}
 	this.shape.x = this.l;
 	this.shape.y = this.t;
 }
@@ -279,8 +320,11 @@ function onKeyDown( event ) {
 	// Also support numpad plus and minus
 	if(code === 37) // left
 		keyState.left = true;
-	if(code === 38) // up
+	if(code === 38){ // up
 		keyState.up = true;
+		if(0 < block_list.length)
+		 	block_list[block_list.length-1].rotate();
+	}
 	if(code === 39) // right
 		keyState.right = true;
 	if(code === 40) // down
