@@ -28,6 +28,7 @@ var MIN_BLOCK_WIDTH = 10;
 var MIN_BLOCK_HEIGHT = 10;
 var MAX_DELAY = 25; /* maximum block destroying delay */
 var InitBlockRate = 0.5;
+var downSpeed = 20;
 
 function Block(l, t, r, b){
 	this.l = l;
@@ -139,6 +140,8 @@ Block.prototype.update = function(){
 			this.slipLeft(-1, Math.max(0, this.l - 2));
 		if(keyState.right)
 			this.slipRight(-1, Math.min(width, this.r + 2));
+		if(keyState.down)
+			this.slipDown(-1, Math.min(this.b + downSpeed, height));
 	}
 
 	if(oldbottom !== this.b){
