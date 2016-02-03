@@ -489,6 +489,17 @@ window.onload = function(){
 	pauseText.x = width / 2 - bounds.width / 2;
 	pauseText.y = gameOverText.y + bounds.height;
 
+	scope.restart();
+}
+
+this.restart = function(){
+	for(var i = 0; i < block_list.length; i++){
+		block_list[i].destroy();
+	}
+	block_list = [];
+	gameOver = false;
+	gameOverText.visible = false;
+	score = 0;
 	setNextBlock();
 	initBlocks();
 
