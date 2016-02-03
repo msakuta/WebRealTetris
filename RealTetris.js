@@ -23,6 +23,7 @@ var keyState = {
 	down: false,
 };
 var score = 0;
+var highScores = [];
 var rs = new Xor128();
 
 var MAX_BLOCK_WIDTH = 50;
@@ -270,6 +271,25 @@ function animate(timestamp) {
 //			us.lastbreak = rand() % (NUM_BREAKTYPES + 1);
 			gameOver = true;
 			gameOverText.visible = gameOver;
+
+			// Update the high scores
+			var insertionIdx = highScores.length;
+			for(var j = 0; j < highScores.length; j++){
+				if(highScores[j].score < score){
+					insertionIdx = j;
+					break;
+				}
+			}
+			highScores.splice(insertionIdx, 0, {score: score, date: new Date()});
+			// Limit the number of high scores
+			if(20 < highScores.length)
+				highScores.pop();
+
+			if(typeof(Storage) !== "undefined"){
+				localStorage.setItem("RealTetris", serialize());
+			}
+			updateHighScores();
+
 /*			{int place;
 			if(0 < (place = PutScore(gs.points)+1)){
 				static char buf[64];
@@ -457,6 +477,40 @@ this.pause = function(){
 	pauseText.visible = paused;
 }
 
+function deserialize(stream){
+	var data = JSON.parse(stream);
+	if(data !== null){
+		for(var i = 0; i < data.highScores.length; i++)
+			highScores.push({score: data.highScores[i].score, date: new Date(data.highScores[i].date)});
+	}
+}
+
+function serialize(){
+	var jsonHighScores = [];
+	for(var i = 0; i < highScores.length; i++)
+		jsonHighScores.push({score: highScores[i].score, date: highScores[i].date.toJSON()});
+	var saveData = {highScores: jsonHighScores};
+	return JSON.stringify(saveData);
+}
+
+/// Update current high score ranking to the table.
+function updateHighScores(){
+	var elem = document.getElementById("highScores");
+	if(highScores.length === 0){
+		// Clear the table if no high scores are available
+		elem.innerHTML = "";
+		return;
+	}
+	// Table and its child nodes could be elements created by document.createElement(),
+	// but this string concatenation is far simpler.
+	var table = "High Scores:<table><tr><th>Place</th><th>Date</th><th>Score</th></tr>";
+	for(var i = 0; i < highScores.length; i++){
+		table += "<tr><td>" + (i+1) + "</td><td>" + highScores[i].date.toLocaleString() + "</td><td>" + highScores[i].score + "</td></tr>";
+	}
+	table += "</table>";
+	elem.innerHTML = table;
+}
+
 window.onload = function(){
 	canvas = document.getElementById("stage");
 	canvas.oncontextmenu = function(){return false;};
@@ -488,6 +542,20 @@ window.onload = function(){
 	var bounds = pauseText.getBounds();
 	pauseText.x = width / 2 - bounds.width / 2;
 	pauseText.y = gameOverText.y + bounds.height;
+
+	if(typeof(Storage) !== "undefined"){
+		try{
+			deserialize(localStorage.getItem("RealTetris"));
+		}
+		catch(e){
+			// If something got wrong about the storage, clear everything.
+			// Doing so would guarantee the problem no longer persists, or we
+			// would be caught in the same problem repeatedly.
+			highScores = [];
+			localStorage.removeItem("RealTetris");
+		}
+		updateHighScores();
+	}
 
 	scope.restart();
 }

@@ -38,6 +38,13 @@ If you've ever played Tetris or its variants, you already know.
 * 'P' key or 'Pause' button toggles pause state of the game.
 
 
+High Scores
+-----------
+
+High scores are stored in your browser's local storage, so if you switch the
+browser, you won't see the same high scores.
+
+
 History
 -------
 

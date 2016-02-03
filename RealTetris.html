@@ -6,6 +6,16 @@
 	<script type="text/javascript" src="lib/xorshift.js"></script>
 	<script type="text/javascript" src="lib/easeljs-0.7.1.min.js"></script>
 	<script type="text/javascript" src="RealTetris.js"></script>
+	<style type="text/css">
+<!--
+body{background-color: #fff0e7}
+canvas{background-color: #aaa}
+table{background-color: #f7c0a0; border: 3px solid #7f7f7f; border-collapse: collapse}
+td{background-color: #ffe0d0}
+th{background-color: #e0c0a0}
+td, th{padding: 2px; border: 2px solid #7f7f7f}
+-->
+	</style>
 </head>
 <body>
 <div id="header">
@@ -15,6 +25,8 @@
 	<input type="button" onclick="RealTetris.restart()" value="Restart"><br>
 	<canvas id="stage" width="300px" height="480px" style="width: 300px; height: 480px;"></canvas>
 	<p>Score: <span id="score">0</span></p>
+<hr>
+	<div id="highScores"></div>
 <hr>
 	<div>Powered by <a href="http://createjs.com/">CreateJS</a>/<a href="http://createjs.com/#!/EaselJS/demos">EaselJS</a></div>
 </body>
