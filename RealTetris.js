@@ -20,6 +20,7 @@ var keyState = {
 	right: false,
 	down: false,
 };
+var score = 0;
 var rs = new Xor128();
 
 var MAX_BLOCK_WIDTH = 50;
@@ -40,7 +41,7 @@ function Block(l, t, r, b){
 	this.r = r;
 	this.b = b; /* dimension of the block. */
 //	fixed vx, vy; /* velocity in fixed format. display is in integral coordinates system, anyway. */
-	this.life = 0; /* if not UINT_MAX, the block is to be removed after this frames. */
+	this.life = -1; /* if not UINT_MAX, the block is to be removed after this frames. */
 }
 
 /// Pseudo destructor that removes the shape from the canvas.
@@ -218,8 +219,16 @@ function init(){
 
 function animate(timestamp) {
 	moved = false;
-	for(var i = 0; i < block_list.length; i++)
+	for(var i = 0; i < block_list.length;){
 		block_list[i].update();
+		if(block_list[i].life === 0){
+			block_list[i].destroy();
+			block_list.splice(i, 1);
+		}
+		else{
+			i++
+		}
+	}
 
 	// Perform collapse check only if everything is settled because this check
 	// is heavy.
@@ -250,6 +259,10 @@ function animate(timestamp) {
 		}
 	}
 	stage.update();
+
+	var scoreElem = document.getElementById("score");
+	if(scoreElem)
+		scoreElem.innerHTML = score;
 }
 
 
@@ -272,30 +285,24 @@ function collapseCheck(){
 			var yt = block_list[i].t;
 	//			us.lastbreak = 1 + rand() % NUM_BREAKTYPES;
 			/* destroy myself. */
-			block_list[i].destroy();
-			block_list.splice(i, 1);
+			block_list[i].life = 0;
+			score++;
 	//			block_list[i].life = rand() % MAX_DELAY;
 			/* destroy all blocks in a horizontal line. */
 			if(spaceb < MIN_SPACE)
 			for(j = 0; j < block_list.length; j++){
 				if(block_list[j].t < yb && yb <= block_list[j].b){
 	//					block_list[j].life = rand() % MAX_DELAY;
-					block_list[j].destroy();
-					block_list.splice(j, 1);
-	/*					BlockBreak(&p->l[j]);
-					KillBlock(p, j);
-					points++;*/
+					block_list[j].life = 0;
+					score++;
 				}
 			}
 			if(spacet < MIN_SPACE)
 			for(j = 0; j < block_list.length; j++){
 				if(block_list[j].t <= yt && yt < block_list[j].b){
 					//block_list[j].life = rand() % MAX_DELAY;
-					block_list[j].destroy();
-					block_list.splice(j, 1);
-	/*					BlockBreak(&p->l[j]);
-					KillBlock(p, j);
-					points++;*/
+					block_list[j].life = 0;
+					score++;
 				}
 			}
 			moved = true;
