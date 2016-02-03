@@ -37,6 +37,7 @@ var InitBlockRate = 0.5;
 var downSpeed = 20;
 var ClearRate = 0.15;
 var AlertRate = 0.3;
+var BLOCK_ERASE_SCORE = 100;
 
 function Block(l, t, r, b){
 	this.l = l;
@@ -178,8 +179,10 @@ Block.prototype.update = function(){
 				this.vx = 0;
 		}
 
-		if(keyState.down)
+		if(keyState.down){
 			this.slipDown(-1, Math.min(this.b + downSpeed, height));
+			score += 1;
+		}
 	}
 
 	if(oldbottom !== this.b){
@@ -335,7 +338,7 @@ function collapseCheck(){
 	//			us.lastbreak = 1 + rand() % NUM_BREAKTYPES;
 			/* destroy myself. */
 			block_list[i].life = 0;
-			score++;
+			score += BLOCK_ERASE_SCORE;
 	//			block_list[i].life = rand() % MAX_DELAY;
 			/* destroy all blocks in a horizontal line. */
 			if(spaceb < MIN_SPACE)
@@ -343,7 +346,7 @@ function collapseCheck(){
 				if(block_list[j].t < yb && yb <= block_list[j].b){
 	//					block_list[j].life = rand() % MAX_DELAY;
 					block_list[j].life = 0;
-					score++;
+					score += BLOCK_ERASE_SCORE;
 				}
 			}
 			if(spacet < MIN_SPACE)
@@ -351,7 +354,7 @@ function collapseCheck(){
 				if(block_list[j].t <= yt && yt < block_list[j].b){
 					//block_list[j].life = rand() % MAX_DELAY;
 					block_list[j].life = 0;
-					score++;
+					score += BLOCK_ERASE_SCORE;
 				}
 			}
 			moved = true;
