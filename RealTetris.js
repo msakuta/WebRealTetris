@@ -41,7 +41,8 @@ function Block(l, t, r, b){
 	this.r = r;
 	this.b = b; /* dimension of the block. */
 //	fixed vx, vy; /* velocity in fixed format. display is in integral coordinates system, anyway. */
-	this.life = -1; /* if not UINT_MAX, the block is to be removed after this frames. */
+	this.life = -1; /* if not -1, the block is to be removed after this frames. */
+	this.vx = 0; // Velocity along horizontal axis
 }
 
 /// Pseudo destructor that removes the shape from the canvas.
@@ -149,9 +150,31 @@ Block.prototype.update = function(){
 	// Only the newest block is controllable
 	if(!gameOver && this === block_list[block_list.length-1]){
 		if(keyState.left)
-			this.slipLeft(-1, Math.max(0, this.l - 2));
+			this.vx = Math.max(-10, this.vx - 0.5);
 		if(keyState.right)
-			this.slipRight(-1, Math.min(width, this.r + 2));
+			this.vx = Math.min(10, this.vx + 0.5);
+
+		// Decelerate if neither left or right key is pressed
+		if(!keyState.left && !keyState.right){
+			if(Math.abs(this.vx) < 1)
+				this.vx = 0;
+			else
+				this.vx -= (this.vx < 0 ? -1 : 1);
+		}
+
+		// this.vx can be fractional, but we disallow fractional position
+		// because it's hard to see the difference.
+		if(this.vx < 0){
+			this.slipLeft(-1, Math.round(Math.max(0, this.l + this.vx)));
+			if(this.l === 0)
+				this.vx = 0;
+		}
+		else if(0 < this.vx){
+			this.slipRight(-1, Math.round(Math.min(width, this.r + this.vx)));
+			if(this.r === width)
+				this.vx = 0;
+		}
+
 		if(keyState.down)
 			this.slipDown(-1, Math.min(this.b + downSpeed, height));
 	}
@@ -226,7 +249,7 @@ function animate(timestamp) {
 			block_list.splice(i, 1);
 		}
 		else{
-			i++
+			i++;
 		}
 	}
 
@@ -271,7 +294,7 @@ function collapseCheck(){
 		/* check horizontal spaces */
 		var spaceb = width;
 		var spacet = width;
-		for(var j = 0; j+1 < block_list.length; j++){
+		for(var j = 0; j < block_list.length; j++){
 			if(i === j) continue;
 			/* bottom line */
 			if(block_list[j].t < block_list[i].b && block_list[i].b <= block_list[j].b)
