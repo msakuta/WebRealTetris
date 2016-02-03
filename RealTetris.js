@@ -445,6 +445,10 @@ function onKeyDown( event ) {
 		scope.pause();
 	}
 
+	// Ignore key inputs when paused
+	if(paused)
+		return;
+
 	// Annoying browser incompatibilities
 	var code = event.which || event.keyCode;
 	// Also support numpad plus and minus
@@ -453,15 +457,23 @@ function onKeyDown( event ) {
 	if(code === 38){ // up
 		keyState.up = true;
 		if(0 < block_list.length)
-		 	block_list[block_list.length-1].rotate();
+			block_list[block_list.length-1].rotate();
 	}
 	if(code === 39) // right
 		keyState.right = true;
 	if(code === 40) // down
 		keyState.down = true;
+
+	// Prevent arrow keys from scrolling the screen
+	if(37 <= code && code <= 40)
+		event.preventDefault();
 }
 
 function onKeyUp( event ) {
+	// Ignore key inputs when paused
+	if(paused)
+		return;
+
 	// Annoying browser incompatibilities
 	var code = event.which || event.keyCode;
 	// Also support numpad plus and minus
