@@ -1,6 +1,6 @@
 'use strict';
-(function(){
-
+var RealTetris = new (function(){
+var scope = this;
 var canvas;
 var width;
 var height;
@@ -12,8 +12,10 @@ var moved = false;
 var nextx;
 var nexty;
 var gameOver = false;
+var paused = false;
 var clearall = true;
 var gameOverText = null;
+var pauseText = null;
 var keyState = {
 	left: false,
 	up: false,
@@ -241,6 +243,10 @@ function init(){
 }
 
 function animate(timestamp) {
+	if(paused){
+		stage.update();
+		return;
+	}
 	moved = false;
 	for(var i = 0; i < block_list.length;){
 		block_list[i].update();
@@ -412,6 +418,10 @@ function initBlocks(){
 }
 
 function onKeyDown( event ) {
+	if(event.keyCode == 80){ // 'p'
+		scope.pause();
+	}
+
 	// Annoying browser incompatibilities
 	var code = event.which || event.keyCode;
 	// Also support numpad plus and minus
@@ -442,6 +452,11 @@ function onKeyUp( event ) {
 		keyState.down = false;
 }
 
+this.pause = function(){
+	paused = !paused;
+	pauseText.visible = paused;
+}
+
 window.onload = function(){
 	canvas = document.getElementById("stage");
 	canvas.oncontextmenu = function(){return false;};
@@ -466,6 +481,13 @@ window.onload = function(){
 	var bounds = gameOverText.getBounds();
 	gameOverText.x = width / 2 - bounds.width / 2;
 	gameOverText.y = height / 2 - bounds.height / 2;
+
+	pauseText = new createjs.Text("PAUSED", "bold 40px Arial", "#0000af");
+	pauseText.visible = false;
+	overlay.addChild(pauseText);
+	var bounds = pauseText.getBounds();
+	pauseText.x = width / 2 - bounds.width / 2;
+	pauseText.y = gameOverText.y + bounds.height;
 
 	setNextBlock();
 	initBlocks();
