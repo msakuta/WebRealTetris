@@ -27,8 +27,12 @@ var MAX_BLOCK_HEIGHT = 50;
 var MIN_BLOCK_WIDTH = 10;
 var MIN_BLOCK_HEIGHT = 10;
 var MAX_DELAY = 25; /* maximum block destroying delay */
+var MIN_SPACE;
+var ALT_SPACE;
 var InitBlockRate = 0.5;
 var downSpeed = 20;
+var ClearRate = 0.15;
+var AlertRate = 0.3;
 
 function Block(l, t, r, b){
 	this.l = l;
@@ -37,6 +41,13 @@ function Block(l, t, r, b){
 	this.b = b; /* dimension of the block. */
 //	fixed vx, vy; /* velocity in fixed format. display is in integral coordinates system, anyway. */
 	this.life = 0; /* if not UINT_MAX, the block is to be removed after this frames. */
+}
+
+/// Pseudo destructor that removes the shape from the canvas.
+Block.prototype.destroy = function(){
+	if(this.shape){
+		blockStage.removeChild(this.shape);
+	}
 }
 
 Block.prototype.getW = function(){
@@ -209,6 +220,12 @@ function animate(timestamp) {
 	moved = false;
 	for(var i = 0; i < block_list.length; i++)
 		block_list[i].update();
+
+	// Perform collapse check only if everything is settled because this check
+	// is heavy.
+	if(!moved)
+		collapseCheck();
+
 	if(!moved && !gameOver){
 		/* if the top is above the dead line, game is over. */
 		if(block_list.length && block_list[block_list.length-1].t < MAX_BLOCK_HEIGHT){
@@ -233,6 +250,57 @@ function animate(timestamp) {
 		}
 	}
 	stage.update();
+}
+
+
+function collapseCheck(){
+	for(var i = 0; i < block_list.length; i++){
+		/* check horizontal spaces */
+		var spaceb = width;
+		var spacet = width;
+		for(var j = 0; j+1 < block_list.length; j++){
+			if(i === j) continue;
+			/* bottom line */
+			if(block_list[j].t < block_list[i].b && block_list[i].b <= block_list[j].b)
+				spaceb -= block_list[j].r - block_list[j].l;
+			/* top line */
+			if(block_list[j].t <= block_list[i].t && block_list[i].t < block_list[j].b)
+				spacet -= block_list[j].r - block_list[j].l;
+		}
+		if(spaceb < MIN_SPACE || spacet < MIN_SPACE){
+			var yb = block_list[i].b;
+			var yt = block_list[i].t;
+	//			us.lastbreak = 1 + rand() % NUM_BREAKTYPES;
+			/* destroy myself. */
+			block_list[i].destroy();
+			block_list.splice(i, 1);
+	//			block_list[i].life = rand() % MAX_DELAY;
+			/* destroy all blocks in a horizontal line. */
+			if(spaceb < MIN_SPACE)
+			for(j = 0; j < block_list.length; j++){
+				if(block_list[j].t < yb && yb <= block_list[j].b){
+	//					block_list[j].life = rand() % MAX_DELAY;
+					block_list[j].destroy();
+					block_list.splice(j, 1);
+	/*					BlockBreak(&p->l[j]);
+					KillBlock(p, j);
+					points++;*/
+				}
+			}
+			if(spacet < MIN_SPACE)
+			for(j = 0; j < block_list.length; j++){
+				if(block_list[j].t <= yt && yt < block_list[j].b){
+					//block_list[j].life = rand() % MAX_DELAY;
+					block_list[j].destroy();
+					block_list.splice(j, 1);
+	/*					BlockBreak(&p->l[j]);
+					KillBlock(p, j);
+					points++;*/
+				}
+			}
+			moved = true;
+		}
+	}
 }
 
 
@@ -349,6 +417,10 @@ window.onload = function(){
 	canvas.oncontextmenu = function(){return false;};
 	width = parseInt(canvas.style.width);
 	height = parseInt(canvas.style.height);
+
+	// These parameters must be initialized after width and height are determined
+	MIN_SPACE = width * ClearRate;
+	ALT_SPACE = width * AlertRate;
 
 	stage = new createjs.Stage(canvas);
 	stage.enableMouseOver();
