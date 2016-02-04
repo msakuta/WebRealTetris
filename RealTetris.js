@@ -47,6 +47,7 @@ function Block(l, t, r, b){
 //	fixed vx, vy; /* velocity in fixed format. display is in integral coordinates system, anyway. */
 	this.life = -1; /* if not -1, the block is to be removed after this frames. */
 	this.vx = 0; // Velocity along horizontal axis
+	this.eraseHint = 0; // Hint color fraction indicating how this block is close to collapse
 }
 
 /// Pseudo destructor that removes the shape from the canvas.
@@ -135,14 +136,10 @@ Block.prototype.slipRight = function(ig, dest){
 /// could fail.
 Block.prototype.initGraphics = function(){
 	var g = new createjs.Graphics();
-	g.setStrokeStyle(1);
-	g.beginStroke("#000000");
-	g.beginFill("red");
-	g.rect(0, 0, this.getW(), this.getH());
 	var shape = new createjs.Shape(g);
 	this.graphics = g;
 	this.shape = shape;
-	this.updateGraphics();
+	this.updateGraphics(true);
 	blockStage.addChild(shape);
 }
 
@@ -152,7 +149,7 @@ Block.prototype.update = function(){
 	this.slipDown(null, newbottom);
 
 	// Only the newest block is controllable
-	if(!gameOver && this === block_list[block_list.length-1]){
+	if(!gameOver && this === controlled){
 		if(keyState.left)
 			this.vx = Math.max(-10, this.vx - 0.5);
 		if(keyState.right)
@@ -188,6 +185,12 @@ Block.prototype.update = function(){
 	if(oldbottom !== this.b){
 		this.updateGraphics();
 		moved = true;
+	}
+	else if(controlled === this){
+		// Release control of this block and stop lateral motion.
+		controlled = null;
+		this.vx = 0;
+		this.updateGraphics(true);
 	}
 }
 
@@ -227,10 +230,18 @@ Block.prototype.rotate = function(){
 Block.prototype.updateGraphics = function(rotated){
 	if(rotated){
 		var g = this.graphics;
+
+		// Set color tone by control state and erase hint
+		var color;
+		if(controlled === this)
+			color = "#00ff7f";
+		else
+			color = "rgb(" + (this.eraseHint * 255).toFixed() + ", 0, 127)";
+
 		g.clear();
 		g.setStrokeStyle(1);
 		g.beginStroke("#000000");
-		g.beginFill("red");
+		g.beginFill(color);
 		g.rect(0, 0, this.getW(), this.getH());
 	}
 	this.shape.x = this.l;
@@ -238,6 +249,7 @@ Block.prototype.updateGraphics = function(rotated){
 }
 
 var block_list = [];
+var controlled = null;
 
 function init(){
 	window.addEventListener( 'keydown', onKeyDown, false );
@@ -319,6 +331,10 @@ function animate(timestamp) {
 
 
 function collapseCheck(){
+	// Clear the hint variable because we'll have max with other block's values
+	for(var i = 0; i < block_list.length; i++)
+		block_list[i].eraseHint = 0;
+
 	for(var i = 0; i < block_list.length; i++){
 		/* check horizontal spaces */
 		var spaceb = width;
@@ -332,9 +348,9 @@ function collapseCheck(){
 			if(block_list[j].t <= block_list[i].t && block_list[i].t < block_list[j].b)
 				spacet -= block_list[j].r - block_list[j].l;
 		}
+		var yb = block_list[i].b;
+		var yt = block_list[i].t;
 		if(spaceb < MIN_SPACE || spacet < MIN_SPACE){
-			var yb = block_list[i].b;
-			var yt = block_list[i].t;
 	//			us.lastbreak = 1 + rand() % NUM_BREAKTYPES;
 			/* destroy myself. */
 			block_list[i].life = 0;
@@ -358,6 +374,28 @@ function collapseCheck(){
 				}
 			}
 			moved = true;
+		}
+		else{
+			// Show blocks near erasing threshold with red color tone gradually.
+			// Only blocks with gaps less than ALT_SPACE are colored.
+			var eraset = Math.min(1, Math.max(0, (ALT_SPACE - spacet) / (ALT_SPACE - MIN_SPACE)));
+			var eraseb = Math.min(1, Math.max(0, (ALT_SPACE - spaceb) / (ALT_SPACE - MIN_SPACE)));
+			block_list[i].eraseHint = Math.max(eraset, eraseb);
+			block_list[i].updateGraphics(true);
+			for(var j = 0; j < block_list.length; j++){
+				if(i === j) continue;
+				var changed = false;
+				if(block_list[j].t <= yt && yt < block_list[j].b && block_list[j].eraseHint < eraset){
+					changed = true;
+					block_list[j].eraseHint = eraset;
+				}
+				if(block_list[j].t <= yb && yb < block_list[j].b && block_list[j].eraseHint < eraseb){
+					changed = true;
+					block_list[j].eraseHint = eraseb;
+				}
+				if(changed)
+					block_list[j].updateGraphics(true);
+			}
 		}
 	}
 }
@@ -386,6 +424,7 @@ function spawnNextBlock(){
 		temp.r = nextx + (temp.l = rs.nexti() % (width - MIN_BLOCK_WIDTH - nextx));
 		temp.b = nexty + (temp.t = rs.nexti() % (height / 4 - MIN_BLOCK_HEIGHT - nexty));
 	} while(getAt(temp, -1) !== block_list.length);
+	controlled = temp;
 	temp.initGraphics();
 	block_list.push(temp);
 
@@ -402,7 +441,7 @@ function setNextBlock(){
 
 /// Spawn initial blocks.
 function initBlocks(){
-	var c = 10;
+	var c = 30;
 	var k = Math.floor((height - MAX_BLOCK_HEIGHT) * InitBlockRate);
 	var cb = null; /* current block */
 	if(block_list.length !== 0){
@@ -431,7 +470,7 @@ function initBlocks(){
 		}
 	}
 	catch(e){
-		console.write(e);
+		console.log(e);
 	}
 	if(cb){
 		cb.initGraphics();
