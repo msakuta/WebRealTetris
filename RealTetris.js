@@ -1,5 +1,5 @@
-'use strict';
 var RealTetris = new (function(){
+'use strict';
 var scope = this;
 var canvas;
 var width;
