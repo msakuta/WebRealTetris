@@ -6,6 +6,7 @@ var width;
 var height;
 var minimapCanvas;
 var stage;
+var underlay;
 var overlay;
 var blockStage;
 var moved = false;
@@ -55,6 +56,8 @@ Block.prototype.destroy = function(){
 	if(this.shape){
 		blockStage.removeChild(this.shape);
 	}
+	if(this.underlayShape)
+		underlay.removeChild(this.underlayShape);
 }
 
 Block.prototype.getW = function(){
@@ -139,8 +142,15 @@ Block.prototype.initGraphics = function(){
 	var shape = new createjs.Shape(g);
 	this.graphics = g;
 	this.shape = shape;
-	this.updateGraphics(true);
 	blockStage.addChild(shape);
+	if(controlled === this){
+		g = new createjs.Graphics();
+		shape = new createjs.Shape(g);
+		this.underlayGraphics = g;
+		this.underlayShape = shape;
+		underlay.addChild(shape);
+	}
+	this.updateGraphics(true);
 }
 
 Block.prototype.update = function(){
@@ -243,9 +253,32 @@ Block.prototype.updateGraphics = function(rotated){
 		g.beginStroke("#000000");
 		g.beginFill(color);
 		g.rect(0, 0, this.getW(), this.getH());
+		if(controlled === this){
+			// Draw fall path guide
+			g = this.underlayGraphics;
+			g.clear();
+			g.beginStroke("#3f7f7f");
+			g.mt(0, this.getH()).lt(0, height);
+			g.mt(this.getW(), this.getH()).lt(this.getW(), height);
+		}
 	}
 	this.shape.x = this.l;
 	this.shape.y = this.t;
+
+	// Update the shape in underlay
+	if(controlled === this){
+		this.underlayShape.x = this.l;
+		this.underlayShape.y = this.t;
+	}
+	else{
+		// Delete guiding lines if it's no longer controlled
+		if(this.underlayShape){
+			underlay.removeChild(this.underlayShape);
+			delete this.underlayShape;
+		}
+		if(this.underlayGraphics)
+			delete this.underlayGraphics;
+	}
 }
 
 var block_list = [];
@@ -578,6 +611,8 @@ window.onload = function(){
 	stage = new createjs.Stage(canvas);
 	stage.enableMouseOver();
 
+	underlay = new createjs.Container();
+	stage.addChild(underlay);
 	blockStage = new createjs.Container();
 	stage.addChild(blockStage);
 	overlay = new createjs.Container();
