@@ -45,7 +45,7 @@ function Block(l, t, r, b){
 	this.t = t;
 	this.r = r;
 	this.b = b; /* dimension of the block. */
-//	fixed vx, vy; /* velocity in fixed format. display is in integral coordinates system, anyway. */
+	this.subblocks = null;
 	this.life = -1; /* if not -1, the block is to be removed after this frames. */
 	this.vx = 0; // Velocity along horizontal axis
 	this.eraseHint = 0; // Hint color fraction indicating how this block is close to collapse
@@ -81,17 +81,50 @@ Block.prototype.set = function(x,y){
 	this.t = y;
 };
 
+/// Enumerate all static blocks including subblocks
+function enumSubBlocks(callback, ignore){
+	for(var i = 0; i < block_list.length; i++){
+		var block = block_list[i];
+		if(block === ignore)
+			continue;
+		block.enumSubBlocks(callback);
+	}
+}
+
+/// Enumerate the block and subblocks in a consistent way.
+/// subblocks are transformed to global coordinates and passed as pseudo block.
+Block.prototype.enumSubBlocks = function(callback){
+	if(this.subblocks){
+		for(var j = 0; j < this.subblocks.length; j++){
+			var pseudoBlock = new Block(
+				this.l + this.subblocks[j].l,
+				this.t + this.subblocks[j].t,
+				this.l + this.subblocks[j].r,
+				this.t + this.subblocks[j].b);
+			callback(pseudoBlock);
+		}
+	}
+	else {
+		callback(this);
+	}
+}
+
 /// Update position by tracing intersecting blocks downwards
 Block.prototype.slipDown = function(ig, dest){
 	var ret = block_list.length;
 	var min = dest;
+	var scope = this;
 
-	for(var i = 0; i < block_list.length; i++){
-		if(i !== ig && this.l < block_list[i].r && block_list[i].l < this.r && this.b <= block_list[i].t && block_list[i].t < min){
-			ret = i;
-			min = block_list[i].t;
-		}
-	}
+	enumSubBlocks(function(block){
+		if(block === ig)
+			return;
+		scope.enumSubBlocks(function(sb){
+			if(sb.l < block.r && block.l < sb.r && sb.b <= block.t && block.t < min - scope.b + sb.b){
+				ret = block;
+				min = block.t + scope.b - sb.b;
+			}
+		});
+	}, this);
 
 	min -= this.b - this.t;
 	this.set(this.l, min);
@@ -103,13 +136,18 @@ Block.prototype.slipDown = function(ig, dest){
 Block.prototype.slipLeft = function(ig, dest){
 	var ret = block_list.length;
 	var max = dest;
+	var scope = this;
 
-	for(var i = 0; i < block_list.length; i++){
-		if(i !== ig && this.t < block_list[i].b && block_list[i].t < this.b && block_list[i].r <= this.l && max < block_list[i].r){
-			ret = i;
-			max = block_list[i].r;
-		}
-	}
+	enumSubBlocks(function(block){
+		if(block === ig)
+			return;
+		scope.enumSubBlocks(function(sb){
+			if(sb.t < block.b && block.t < sb.b && block.r <= sb.l && max - scope.l + sb.l < block.r){
+				ret = block;
+				max = block.r + scope.l - sb.l;
+			}
+		});
+	}, this);
 
 	this.set(max, this.t);
 
@@ -120,13 +158,18 @@ Block.prototype.slipLeft = function(ig, dest){
 Block.prototype.slipRight = function(ig, dest){
 	var ret = block_list.length;
 	var min = dest;
+	var scope = this;
 
-	for(var i = 0; i < block_list.length; i++){
-		if(i !== ig && this.t < block_list[i].b && block_list[i].t < this.b && this.r <= block_list[i].l && block_list[i].l < min){
-			ret = i;
-			min = block_list[i].l;
-		}
-	}
+	enumSubBlocks(function(block){
+		if(block === ig)
+		 	return;
+		scope.enumSubBlocks(function(sb){
+			if(sb.t < block.b && block.t < sb.b && sb.r <= block.l && block.l < min - scope.r + sb.r){
+				ret = block;
+				min = block.l + scope.r - sb.r;
+			}
+		});
+	}, this);
 
 	min -= this.r - this.l;
 	this.set(min, this.t);
@@ -212,8 +255,24 @@ Block.prototype.rotate = function(){
 	newblock.t = (this.l - this.r + this.t + this.b) / 2;
 	newblock.r = (this.b - this.t + this.l + this.r) / 2;
 	newblock.b = (this.r - this.l + this.t + this.b) / 2;
-	var i = getAt(newblock, -1);
-	if(i !== block_list.length-1){ /* some blocks got in the way */
+	var newsubblocks;
+	if(this.subblocks){
+		// Rotate subblocks counterclockwise.
+		var cx = this.getW();
+		newsubblocks = [];
+		for(var i = 0; i < this.subblocks.length; i++){
+			var subblock = this.subblocks[i];
+			var newsubblock = {
+				l: subblock.t,
+				t: -subblock.r + cx,
+				r: subblock.b,
+				b: -subblock.l + cx,
+			};
+			newsubblocks.push(newsubblock);
+		}
+	}
+	var i = getAt(newblock, block_list.indexOf(this));
+	if(i !== block_list.length){ /* some blocks got in the way */
 //					var pb = block_list[i];
 //					AddTefbox(g_ptefl, tb.l, tb.t, tb.r, tb.b, RGB(64, 64, 16), WG_BLACK, .5, 0);
 //					AddTefbox(g_ptefl, MAX(pb->l, tb.l), MAX(pb->t, tb.t), MIN(pb->r, tb.r),
@@ -233,11 +292,14 @@ Block.prototype.rotate = function(){
 		this.t = newblock.t;
 		this.r = newblock.r;
 		this.b = newblock.b;
+		this.subblocks = newsubblocks;
 		this.updateGraphics(true);
 	}
 }
 
 Block.prototype.updateGraphics = function(rotated){
+	if(!this.graphics || !this.shape)
+		return;
 	if(rotated){
 		var g = this.graphics;
 
@@ -249,17 +311,37 @@ Block.prototype.updateGraphics = function(rotated){
 			color = "rgb(" + (this.eraseHint * 255).toFixed() + ", 0, 127)";
 
 		g.clear();
-		g.setStrokeStyle(1);
-		g.beginStroke("#000000");
-		g.beginFill(color);
-		g.rect(0, 0, this.getW(), this.getH());
+		if(this.subblocks){
+			for(var i = 0; i < this.subblocks.length; i++){
+				g.setStrokeStyle(1);
+				g.beginStroke("#000000");
+				g.beginFill(color);
+				g.rect(this.subblocks[i].l, this.subblocks[i].t, this.subblocks[i].r - this.subblocks[i].l, this.subblocks[i].b - this.subblocks[i].t);
+			}
+		}
+		else{
+			g.setStrokeStyle(1);
+			g.beginStroke("#000000");
+			g.beginFill(color);
+			g.rect(0, 0, this.getW(), this.getH());
+		}
+
 		if(controlled === this){
 			// Draw fall path guide
 			g = this.underlayGraphics;
 			g.clear();
 			g.beginStroke("#3f7f7f");
-			g.mt(0, this.getH()).lt(0, height);
-			g.mt(this.getW(), this.getH()).lt(this.getW(), height);
+			if(this.subblocks){
+				for(var i = 0; i < this.subblocks.length; i++){
+					var sb = this.subblocks[i];
+					g.mt(sb.l, sb.b).lt(sb.l, height);
+					g.mt(sb.r, sb.b).lt(sb.r, height);
+				}
+			}
+			else{
+				g.mt(0, this.getH()).lt(0, height);
+				g.mt(this.getW(), this.getH()).lt(this.getW(), height);
+			}
 		}
 	}
 	this.shape.x = this.l;
@@ -280,6 +362,27 @@ Block.prototype.updateGraphics = function(rotated){
 			delete this.underlayGraphics;
 	}
 }
+
+Block.prototype.addSubBlock = function(l, t, r, b){
+	if(!this.subblocks)
+		this.subblocks = [];
+	this.subblocks.push({l:l, t:t, r:r, b:b});
+
+	for(var i = 0; i < this.subblocks.length; i++){
+		var sb = this.subblocks[i];
+		// Don't add subblocks with negative coordinates because it will violate
+		// the convention of bounding rectangle!
+//		if(sb.l < 0)
+//			this.l -= sb.l;
+//		if(sb.t < 0)
+//			this.t -= sb.t;
+
+		if(this.r - this.l < sb.r)
+			this.r = this.l + sb.r;
+		if(this.b - this.t < sb.b)
+			this.b = this.t + sb.b;
+	}
+};
 
 var block_list = [];
 var controlled = null;
@@ -456,6 +559,15 @@ function spawnNextBlock(){
 			break;
 		temp.r = nextx + (temp.l = rs.nexti() % (width - MIN_BLOCK_WIDTH - nextx));
 		temp.b = nexty + (temp.t = rs.nexti() % (height / 4 - MIN_BLOCK_HEIGHT - nexty));
+		if(rs.nexti() % 3 < 2 && 0 < nextx - 2 * MIN_BLOCK_WIDTH && 0 < nexty - 2 * MIN_BLOCK_WIDTH){
+			temp.subblocks = [];
+			var hdiv = rs.nexti() % (nextx - 2 * MIN_BLOCK_WIDTH) + MIN_BLOCK_WIDTH;
+			temp.addSubBlock(0, 0, hdiv, temp.getH());
+			temp.addSubBlock(hdiv, 0, temp.getW(), rs.nexti() % (nexty - 2 * MIN_BLOCK_WIDTH) + MIN_BLOCK_WIDTH);
+			var angle = rs.nexti() % 3;
+			for(var i = 0; i < angle; i++)
+				temp.rotate();
+		}
 	} while(getAt(temp, -1) !== block_list.length);
 	controlled = temp;
 	temp.initGraphics();
