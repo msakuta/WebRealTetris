@@ -82,17 +82,21 @@ Block.prototype.set = function(x,y){
 };
 
 /// Enumerate all static blocks including subblocks
+/// @returns if the enumeration is aborted by callback function's returned value
 function enumSubBlocks(callback, ignore){
 	for(var i = 0; i < block_list.length; i++){
 		var block = block_list[i];
 		if(block === ignore)
 			continue;
-		block.enumSubBlocks(callback);
+		if(block.enumSubBlocks(callback))
+			return true;
 	}
+	return false;
 }
 
 /// Enumerate the block and subblocks in a consistent way.
 /// subblocks are transformed to global coordinates and passed as pseudo block.
+/// @returns if the enumeration is aborted by callback function's returned value
 Block.prototype.enumSubBlocks = function(callback){
 	if(this.subblocks){
 		for(var j = 0; j < this.subblocks.length; j++){
@@ -101,12 +105,15 @@ Block.prototype.enumSubBlocks = function(callback){
 				this.t + this.subblocks[j].t,
 				this.l + this.subblocks[j].r,
 				this.t + this.subblocks[j].b);
-			callback(pseudoBlock);
+			if(callback(pseudoBlock, this))
+				return true;
 		}
 	}
 	else {
-		callback(this);
+		if(callback(this, this))
+			return true;
 	}
+	return false;
 }
 
 /// Update position by tracing intersecting blocks downwards
@@ -472,67 +479,71 @@ function collapseCheck(){
 		block_list[i].eraseHint = 0;
 
 	for(var i = 0; i < block_list.length; i++){
-		/* check horizontal spaces */
-		var spaceb = width;
-		var spacet = width;
-		for(var j = 0; j < block_list.length; j++){
-			if(i === j) continue;
-			/* bottom line */
-			if(block_list[j].t < block_list[i].b && block_list[i].b <= block_list[j].b)
-				spaceb -= block_list[j].r - block_list[j].l;
-			/* top line */
-			if(block_list[j].t <= block_list[i].t && block_list[i].t < block_list[j].b)
-				spacet -= block_list[j].r - block_list[j].l;
-		}
-		var yb = block_list[i].b;
-		var yt = block_list[i].t;
-		if(spaceb < MIN_SPACE || spacet < MIN_SPACE){
-	//			us.lastbreak = 1 + rand() % NUM_BREAKTYPES;
-			/* destroy myself. */
-			block_list[i].life = 0;
-			score += BLOCK_ERASE_SCORE;
-	//			block_list[i].life = rand() % MAX_DELAY;
-			/* destroy all blocks in a horizontal line. */
-			if(spaceb < MIN_SPACE)
-			for(j = 0; j < block_list.length; j++){
-				if(block_list[j].t < yb && yb <= block_list[j].b){
-	//					block_list[j].life = rand() % MAX_DELAY;
-					block_list[j].life = 0;
-					score += BLOCK_ERASE_SCORE;
+		var block = block_list[i];
+		block.enumSubBlocks(function(sb){
+			/* check horizontal spaces */
+			var spaceb = width;
+			var spacet = width;
+
+			/// Enumerate all the other blocks to determine space
+			enumSubBlocks(function(block2){
+				/* bottom line */
+				if(block2.t < sb.b && sb.b <= block2.b)
+					spaceb -= block2.r - block2.l;
+				/* top line */
+				if(block2.t <= sb.t && sb.t < block2.b)
+					spacet -= block2.r - block2.l;
+			}, block);
+
+			var yb = sb.b;
+			var yt = sb.t;
+			if(spaceb < MIN_SPACE || spacet < MIN_SPACE){
+		//			us.lastbreak = 1 + rand() % NUM_BREAKTYPES;
+				/* destroy myself. */
+				block.life = 0;
+				score += BLOCK_ERASE_SCORE;
+		//			block_list[i].life = rand() % MAX_DELAY;
+				/* destroy all blocks in a horizontal line. */
+				if(spaceb < MIN_SPACE)
+				for(var j = 0; j < block_list.length; j++){
+					if(block_list[j].t < yb && yb <= block_list[j].b){
+		//					block_list[j].life = rand() % MAX_DELAY;
+						block_list[j].life = 0;
+						score += BLOCK_ERASE_SCORE;
+					}
 				}
+				if(spacet < MIN_SPACE)
+				for(var j = 0; j < block_list.length; j++){
+					if(block_list[j].t <= yt && yt < block_list[j].b){
+						//block_list[j].life = rand() % MAX_DELAY;
+						block_list[j].life = 0;
+						score += BLOCK_ERASE_SCORE;
+					}
+				}
+				moved = true;
 			}
-			if(spacet < MIN_SPACE)
-			for(j = 0; j < block_list.length; j++){
-				if(block_list[j].t <= yt && yt < block_list[j].b){
-					//block_list[j].life = rand() % MAX_DELAY;
-					block_list[j].life = 0;
-					score += BLOCK_ERASE_SCORE;
-				}
+			else{
+				// Show blocks near erasing threshold with red color tone gradually.
+				// Only blocks with gaps less than ALT_SPACE are colored.
+				var eraset = Math.min(1, Math.max(0, (ALT_SPACE - spacet) / (ALT_SPACE - MIN_SPACE)));
+				var eraseb = Math.min(1, Math.max(0, (ALT_SPACE - spaceb) / (ALT_SPACE - MIN_SPACE)));
+				block.eraseHint = Math.max(eraset, eraseb);
+				block.updateGraphics(true);
+				enumSubBlocks(function(block2, block2Parent){
+					var changed = false;
+					if(block2.t <= yt && yt < block2.b && block2.eraseHint < eraset){
+						changed = true;
+						block2Parent.eraseHint = eraset;
+					}
+					if(block2.t <= yb && yb < block.b && block2.eraseHint < eraseb){
+						changed = true;
+						block2Parent.eraseHint = eraseb;
+					}
+					if(changed)
+						block2Parent.updateGraphics(true);
+				}, block);
 			}
-			moved = true;
-		}
-		else{
-			// Show blocks near erasing threshold with red color tone gradually.
-			// Only blocks with gaps less than ALT_SPACE are colored.
-			var eraset = Math.min(1, Math.max(0, (ALT_SPACE - spacet) / (ALT_SPACE - MIN_SPACE)));
-			var eraseb = Math.min(1, Math.max(0, (ALT_SPACE - spaceb) / (ALT_SPACE - MIN_SPACE)));
-			block_list[i].eraseHint = Math.max(eraset, eraseb);
-			block_list[i].updateGraphics(true);
-			for(var j = 0; j < block_list.length; j++){
-				if(i === j) continue;
-				var changed = false;
-				if(block_list[j].t <= yt && yt < block_list[j].b && block_list[j].eraseHint < eraset){
-					changed = true;
-					block_list[j].eraseHint = eraset;
-				}
-				if(block_list[j].t <= yb && yb < block_list[j].b && block_list[j].eraseHint < eraseb){
-					changed = true;
-					block_list[j].eraseHint = eraseb;
-				}
-				if(changed)
-					block_list[j].updateGraphics(true);
-			}
-		}
+		});
 	}
 }
 
