@@ -112,11 +112,28 @@ Block.prototype.intersects = function(r){
 
 /// Set left top position of this block without changing size
 Block.prototype.set = function(x,y){
+	var changed = this.l !== x || this.t !== y;
 	this.r -= this.l - x;
 	this.l = x;
 	this.b -= this.t - y;
 	this.t = y;
+	if(changed)
+		this.updateCache();
 };
+
+Block.prototype.updateCache = function(){
+	if(!this.subblocks)
+		return;
+	this.cachedSubBlocks = [];
+	for(var i = 0; i < this.subblocks.length; i++){
+		var pseudoBlock = new Block(
+			this.l + this.subblocks[i].l,
+			this.t + this.subblocks[i].t,
+			this.l + this.subblocks[i].r,
+			this.t + this.subblocks[i].b);
+		this.cachedSubBlocks.push(pseudoBlock);
+	}
+}
 
 /// Enumerate all static blocks including subblocks
 /// @returns if the enumeration is aborted by callback function's returned value
@@ -136,13 +153,10 @@ function enumSubBlocks(callback, ignore){
 /// @returns if the enumeration is aborted by callback function's returned value
 Block.prototype.enumSubBlocks = function(callback){
 	if(this.subblocks){
-		for(var j = 0; j < this.subblocks.length; j++){
-			var pseudoBlock = new Block(
-				this.l + this.subblocks[j].l,
-				this.t + this.subblocks[j].t,
-				this.l + this.subblocks[j].r,
-				this.t + this.subblocks[j].b);
-			if(callback(pseudoBlock, this))
+		if(!this.cachedSubBlocks)
+			this.updateCache();
+		for(var j = 0; j < this.cachedSubBlocks.length; j++){
+			if(callback(this.cachedSubBlocks[j], this))
 				return true;
 		}
 	}
@@ -525,7 +539,7 @@ function animate(timestamp) {
 
 	// Perform collapse check only if everything is settled because this check
 	// is heavy.
-	if(!moved)
+	if(!moved && !gameOver)
 		collapseCheck();
 
 	if(!moved && !gameOver){
