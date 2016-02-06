@@ -32,11 +32,8 @@ var MAX_BLOCK_HEIGHT = 50;
 var MIN_BLOCK_WIDTH = 10;
 var MIN_BLOCK_HEIGHT = 10;
 var MAX_DELAY = 25; /* maximum block destroying delay */
-var MIN_SPACE;
-var ALT_SPACE;
 var InitBlockRate = 0.5;
 var downSpeed = 20;
-var ClearRate = 0.15;
 var AlertRate = 0.3;
 var BLOCK_ERASE_SCORE = 100;
 
@@ -593,6 +590,13 @@ function animate(timestamp) {
 
 
 function collapseCheck(){
+	// The minimum space becomes half when you get 30000 points and increasingly
+	// harder as the score goes up.
+	// Let's leave at least 1% of width in even the hardest condition, or it
+	// will be really impossible.
+	var MIN_SPACE = width * (0.01 + 0.29 * 30000 / (score + 30000));
+	var ALT_SPACE = MIN_SPACE + AlertRate * width;
+
 	// Clear the hint variable because we'll have max with other block's values
 	for(var i = 0; i < block_list.length; i++)
 		block_list[i].eraseHint = 0;
@@ -845,10 +849,6 @@ window.onload = function(){
 	canvas.oncontextmenu = function(){return false;};
 	width = parseInt(canvas.style.width);
 	height = parseInt(canvas.style.height);
-
-	// These parameters must be initialized after width and height are determined
-	MIN_SPACE = width * ClearRate;
-	ALT_SPACE = width * AlertRate;
 
 	stage = new createjs.Stage(canvas);
 	stage.enableMouseOver();
