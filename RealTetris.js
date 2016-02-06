@@ -360,9 +360,9 @@ Block.prototype.updateGraphics = function(rotated){
 		// Set color tone by control state and erase hint
 		var color;
 		if(controlled === this)
-			color = "#00ff7f";
+			color = "#00ffaf";
 		else
-			color = "rgb(" + (this.eraseHint * 255).toFixed() + ", 0, 127)";
+			color = "rgb(" + (this.eraseHint * 255).toFixed() + ", 0, 191)";
 
 		g.clear();
 		if(this.subblocks){
@@ -846,14 +846,14 @@ window.onload = function(){
 	overlay = new createjs.Container();
 	stage.addChild(overlay);
 
-	gameOverText = new createjs.Text("GAME OVER", "bold 40px Arial", "#007f7f");
+	gameOverText = new createjs.Text("GAME OVER", "bold 40px Arial", "#ff3f3f");
 	gameOverText.visible = false;
 	overlay.addChild(gameOverText);
 	var bounds = gameOverText.getBounds();
 	gameOverText.x = width / 2 - bounds.width / 2;
 	gameOverText.y = height / 2 - bounds.height / 2;
 
-	pauseText = new createjs.Text("PAUSED", "bold 40px Arial", "#0000af");
+	pauseText = new createjs.Text("PAUSED", "bold 40px Arial", "#7fff00");
 	pauseText.visible = false;
 	overlay.addChild(pauseText);
 	var bounds = pauseText.getBounds();
