@@ -40,6 +40,43 @@ var ClearRate = 0.15;
 var AlertRate = 0.3;
 var BLOCK_ERASE_SCORE = 100;
 
+//============== Vector arithmetics ======================
+// These functions are meant to be used for two-element arrays.
+function vecslen(v){
+	return v[0] * v[0] + v[1] * v[1];
+}
+
+function veclen(v){
+	return Math.sqrt(vecslen(v));
+}
+
+function vecnorm(v){
+	var len = veclen(v);
+	return [v[0] / len, v[1] / len];
+}
+
+function vecscale(v,s){
+	return [v[0] * s, v[1] * s];
+}
+
+function vecadd(v1,v2){
+	return [v1[0] + v2[0], v1[1] + v2[1]];
+}
+
+function vecsub(v1,v2){
+	return [v1[0] - v2[0], v1[1] - v2[1]];
+}
+
+function vecdot(v1,v2){
+	return v1[0] * v2[0] + v1[1] * v2[1];
+}
+
+function veccross(v1,v2){
+	return v1[0] * v2[1] - v1[1] * v2[0];
+}
+
+
+//============== Block class definition ======================
 function Block(l, t, r, b){
 	this.l = l;
 	this.t = t;
@@ -305,6 +342,16 @@ Block.prototype.rotate = function(){
 }
 
 Block.prototype.updateGraphics = function(rotated){
+	/// An internal class that represents an edge of rectangle.
+	/// Used for outlining compound blocks.
+	function Edge(base, dir){
+		this.base = base;
+		this.dir = dir;
+	}
+	Edge.prototype.getEnd = function(){
+		return vecadd(this.base, this.dir);
+	}
+
 	if(!this.graphics || !this.shape)
 		return;
 	if(rotated){
@@ -321,9 +368,67 @@ Block.prototype.updateGraphics = function(rotated){
 		if(this.subblocks){
 			for(var i = 0; i < this.subblocks.length; i++){
 				g.setStrokeStyle(1);
-				g.beginStroke("#000000");
 				g.beginFill(color);
 				g.rect(this.subblocks[i].l, this.subblocks[i].t, this.subblocks[i].r - this.subblocks[i].l, this.subblocks[i].b - this.subblocks[i].t);
+			}
+
+			// Enumerate edges of subblocks to trace union of the edges in this
+			// block.
+			var edges = [];
+			for(var i = 0; i < this.subblocks.length; i++){
+				var sb = this.subblocks[i];
+				edges.push(new Edge([sb.l, sb.t], [0, sb.b - sb.t]));
+				edges.push(new Edge([sb.l, sb.b], [sb.r - sb.l, 0]));
+				edges.push(new Edge([sb.r, sb.b], [0, sb.t - sb.b]));
+				edges.push(new Edge([sb.r, sb.t], [sb.l - sb.r, 0]));
+			}
+			g.setStrokeStyle(1);
+			g.beginStroke("#000000");
+			for(var i = 0; i < edges.length; i++){
+				var start = edges[i].base;
+				var end = edges[i].getEnd();
+				var skip = false;
+				for(var j = 0; j < edges.length; j++){
+					if(i === j)
+						continue;
+					var ndir = vecnorm(edges[i].dir);
+					var normal = [ndir[1], -ndir[0]]; // Vector normal to the direction
+
+					// There could be floating point error in vector aritmetics, so
+					// directly comparing values could yield unexpected result,
+					// but the coordinates are all integer.
+					if(veccross(edges[i].dir, edges[j].dir) === 0 && vecdot(edges[i].base, normal) === vecdot(edges[j].base, normal)){
+						var iStart = vecdot(start, ndir);
+						var iEnd = vecdot(end, ndir);
+						var jStart = vecdot(edges[j].base, ndir);
+						var jEnd = vecdot(edges[j].getEnd(), ndir);
+						var jDots = [jStart, jEnd];
+						var jPoints = [edges[j].base, edges[j].getEnd()];
+
+						// Sort the two arrays in ascending order.
+						// The edge from the outer loop (i) has always iEnd greater
+						// than iStart, but one from the inner loop (j) not
+						// necessarily does, so we need to sort the end points in
+						// consistent order to make the algorithms work.
+						// Array.sort() could not be used because the two arrays
+						// should be synchronized.
+						if(jEnd < jStart){
+							jDots.reverse();
+							jPoints.reverse();
+						}
+
+						// If the whole edge is contained in another edge,
+						// No parts of it should be rendered.
+						if(jDots[0] <= iStart && iEnd <= jDots[1])
+							skip = true;
+						else if(iStart <= jDots[0] && jDots[0] < iEnd)
+							end = jPoints[0];
+						else if(iStart <= jDots[1] && jDots[1] < iEnd)
+							start = jPoints[1];
+					}
+				}
+				if(!skip)
+					g.moveTo(start[0], start[1]).lineTo(end[0], end[1]);
 			}
 		}
 		else{
