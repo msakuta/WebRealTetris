@@ -416,9 +416,11 @@ Block.prototype.updateGraphics = function(rotated){
 						var jPoints = [edges[j].base, edges[j].getEnd()];
 
 						// Sort the two arrays in ascending order.
-						// The edge from the outer loop (i) has always iEnd greater
-						// than iStart, but one from the inner loop (j) not
-						// necessarily does, so we need to sort the end points in
+						// The edge from the outer loop (i) has two endpoints,
+						// whose dot products along the direction are iStart and iEnd.
+						// iEnd is always greater than iStart, but the endpoints
+						// of the edge from the inner loop (j) not necessarily does,
+						// so we need to sort the end points in
 						// consistent order to make the algorithms work.
 						// Array.sort() could not be used because the two arrays
 						// should be synchronized.
@@ -431,6 +433,17 @@ Block.prototype.updateGraphics = function(rotated){
 						// No parts of it should be rendered.
 						if(jDots[0] <= iStart && iEnd <= jDots[1])
 							skip = true;
+						// If, on the other hand, the edge containes another edge,
+						// we need two passes to draw segmented lines.
+						// Technically, there could be the case that we need
+						// 3 line segments or more to draw an edge (double T-junction),
+						// but it won't happen in current block generation algorithm.
+						else if(iStart <= jDots[0] && jDots[1] < iEnd){
+							// Draw the former line segment here, let the code
+							// outside this loop draw the latter one.
+							g.moveTo(start[0], start[1]).lineTo(jPoints[0][0], jPoints[0][1]);
+							start = jPoints[1];
+						}
 						else if(iStart <= jDots[0] && jDots[0] < iEnd)
 							end = jPoints[0];
 						else if(iStart <= jDots[1] && jDots[1] < iEnd)
