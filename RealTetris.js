@@ -87,7 +87,10 @@ function Block(l, t, r, b){
 /// Pseudo destructor that removes the shape from the canvas.
 Block.prototype.destroy = function(){
 	if(this.shape){
-		blockStage.removeChild(this.shape);
+		if(this.forecast)
+			underlay.removeChild(this.shape);
+		else
+			blockStage.removeChild(this.shape);
 	}
 	if(this.underlayShape)
 		underlay.removeChild(this.underlayShape);
@@ -241,6 +244,9 @@ Block.prototype.initGraphics = function(forecast){
 	var shape = new createjs.Shape(g);
 	this.graphics = g;
 	this.shape = shape;
+
+	// Remember forecast state
+	this.forecast = forecast;
 
 	// Put the forecasting block graphics to background
 	if(forecast)
@@ -990,6 +996,8 @@ this.restart = function(){
 	for(var i = 0; i < block_list.length; i++){
 		block_list[i].destroy();
 	}
+	if(nextBlock)
+		nextBlock.destroy();
 	block_list = [];
 	gameOver = false;
 	gameOverText.visible = false;
