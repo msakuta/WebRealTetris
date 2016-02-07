@@ -10,8 +10,7 @@ var underlay;
 var overlay;
 var blockStage;
 var moved = false;
-var nextx;
-var nexty;
+var nextBlock;
 var gameOver = false;
 var paused = false;
 var clearall = true;
@@ -686,35 +685,96 @@ function getAt(p, ig){
 
 
 function spawnNextBlock(){
-	var temp = new Block(0, 0, 0, 0);
 	var retries = 0;
 	do{
 		if(100 < retries++)
 			break;
-		temp.r = nextx + (temp.l = rs.nexti() % (width - MIN_BLOCK_WIDTH - nextx));
-		temp.b = nexty + (temp.t = rs.nexti() % (height / 4 - MIN_BLOCK_HEIGHT - nexty));
-		if(rs.nexti() % 3 < 2 && 0 < nextx - 2 * MIN_BLOCK_WIDTH && 0 < nexty - 2 * MIN_BLOCK_WIDTH){
-			temp.subblocks = [];
-			var hdiv = rs.nexti() % (nextx - 2 * MIN_BLOCK_WIDTH) + MIN_BLOCK_WIDTH;
-			temp.addSubBlock(0, 0, hdiv, temp.getH());
-			temp.addSubBlock(hdiv, 0, temp.getW(), rs.nexti() % (nexty - 2 * MIN_BLOCK_WIDTH) + MIN_BLOCK_WIDTH);
-			var angle = rs.nexti() % 3;
-			for(var i = 0; i < angle; i++)
-				temp.rotate();
-		}
-	} while(getAt(temp, -1) !== block_list.length);
-	controlled = temp;
-	temp.initGraphics();
-	block_list.push(temp);
+		nextBlock.set(rs.nexti() % (width - MIN_BLOCK_WIDTH - nextBlock.getW()),
+			rs.nexti() % (height / 4 - MIN_BLOCK_HEIGHT - nextBlock.getH()));
+	} while(getAt(nextBlock, -1) !== block_list.length);
+	controlled = nextBlock;
+	nextBlock.initGraphics();
+	block_list.push(nextBlock);
 
 	setNextBlock();
 
-	return temp;
+	return nextBlock;
 }
 
 function setNextBlock(){
-	nextx = rs.nexti() % (MAX_BLOCK_WIDTH - MIN_BLOCK_WIDTH) + MIN_BLOCK_WIDTH;
-	nexty = rs.nexti() % (MAX_BLOCK_HEIGHT - MIN_BLOCK_HEIGHT) + MIN_BLOCK_HEIGHT;
+	var type = rs.nexti() % 4;
+	// type === 0: Simple block
+	//  +-----+
+	//  |     |
+	//  |     |
+	//  +-----+
+	//
+	// type === 1: Angled block
+	//  +-----+
+	//  |  +--+
+	//  |  |
+	//  +--+
+	//
+	// type === 2: T-shape
+	//  +--+
+	//  |  +--+
+	//  |  +--+
+	//  +--+
+	//
+	// type === 3: Z-shape
+	//     +--+
+	//  +--+  |
+	//  |  +--+
+	//  +--+
+	//
+	// type === 4: S-shape
+	//  +--+
+	//  |  +--+
+	//  +--+  |
+	//     +--+
+	//
+	if(type === 0){
+		var nextx = rs.nexti() % (MAX_BLOCK_WIDTH - MIN_BLOCK_WIDTH) + MIN_BLOCK_WIDTH;
+		var nexty = rs.nexti() % (MAX_BLOCK_HEIGHT - MIN_BLOCK_HEIGHT) + MIN_BLOCK_HEIGHT;
+		var posx = rs.nexti() % (width - MIN_BLOCK_WIDTH - nextx);
+		var posy = rs.nexti() % (height / 4 - MIN_BLOCK_HEIGHT - nexty);
+		nextBlock = new Block(posx, posy, posx + nextx, posy + nexty);
+	}
+	else{
+		var minWidth = MIN_BLOCK_WIDTH * 2 + 1;
+		var minHeight = MIN_BLOCK_HEIGHT * (type === 1 ? 2 : 3) + 1;
+		var nextx = rs.nexti() % (MAX_BLOCK_WIDTH - minWidth) + minWidth;
+		var nexty = rs.nexti() % (MAX_BLOCK_HEIGHT - minHeight) + minHeight;
+		var posx = rs.nexti() % (width - MIN_BLOCK_WIDTH - nextx);
+		var posy = rs.nexti() % (height / 4 - MIN_BLOCK_HEIGHT - nexty);
+		nextBlock = new Block(posx, posy, posx + nextx, posy + nexty);
+		nextBlock.subblocks = [];
+		var hdiv = rs.nexti() % (nextx - 2 * MIN_BLOCK_WIDTH) + MIN_BLOCK_WIDTH;
+		var y0 = 0;
+		var y1 = nexty;
+
+		if(type === 3)
+			y0 = rs.nexti() % (nexty - 3 * MIN_BLOCK_HEIGHT) + MIN_BLOCK_HEIGHT;
+		if(type === 4)
+			y1 = rs.nexti() % (nexty - 3 * MIN_BLOCK_HEIGHT) + 2 * MIN_BLOCK_HEIGHT + 1;
+		nextBlock.addSubBlock(0, y0, hdiv, y1);
+
+		if(type === 2){
+			var y = rs.nexti() % (nexty - 3 * MIN_BLOCK_HEIGHT) + MIN_BLOCK_HEIGHT;
+			nextBlock.addSubBlock(hdiv, y, nextBlock.getW(), y + rs.nexti() % (nexty - y - 2 * MIN_BLOCK_HEIGHT) + MIN_BLOCK_HEIGHT);
+		}
+		else if(type === 3)
+			nextBlock.addSubBlock(hdiv, 0, nextBlock.getW(), rs.nexti() % (nexty - y0 - 2 * MIN_BLOCK_HEIGHT) + y0 + MIN_BLOCK_HEIGHT);
+		else if(type === 4){
+			y0 = rs.nexti() % (y1 - 2 * MIN_BLOCK_HEIGHT) + MIN_BLOCK_HEIGHT;
+			nextBlock.addSubBlock(hdiv, y0, nextBlock.getW(), nextBlock.getH());
+		}
+		else
+			nextBlock.addSubBlock(hdiv, 0, nextBlock.getW(), rs.nexti() % (nexty - 2 * MIN_BLOCK_HEIGHT) + MIN_BLOCK_HEIGHT);
+		var angle = rs.nexti() % 3;
+		for(var i = 0; i < angle; i++)
+			nextBlock.rotate();
+	}
 }
 
 
