@@ -24,7 +24,8 @@ Like Tetris, your goal is to erase as many blocks as possible by aligning them
 horizontally before blocks stack up to the top of the stage.
 Although, it is almost impossible to fill all gaps between blocks in a row,
 so you only have to fill certain fraction of gaps to erase blocks.
-The default setting is that 15% or less gap erases the blocks.
+At first, you have to fill only 70% of width of the stage to erase blocks,
+but it will become increasingly harder to erase as the score gets high.
 
 
 Controls
