@@ -234,20 +234,28 @@ Block.prototype.slipRight = function(ig, dest){
 /// Initialize graphics objects associated with this block.
 /// This is not done in the constructor because putting a block to the game
 /// could fail.
-Block.prototype.initGraphics = function(){
+/// @param forecast make graphics for forecast of next block. It is added to underlay
+///        instead of blockStage.
+Block.prototype.initGraphics = function(forecast){
 	var g = new createjs.Graphics();
 	var shape = new createjs.Shape(g);
 	this.graphics = g;
 	this.shape = shape;
-	blockStage.addChild(shape);
-	if(controlled === this){
+
+	// Put the forecasting block graphics to background
+	if(forecast)
+		underlay.addChild(shape);
+	else
+		blockStage.addChild(shape);
+
+	if(controlled === this && !forecast){
 		g = new createjs.Graphics();
 		shape = new createjs.Shape(g);
 		this.underlayGraphics = g;
 		this.underlayShape = shape;
 		underlay.addChild(shape);
 	}
-	this.updateGraphics(true);
+	this.updateGraphics(true, forecast);
 }
 
 Block.prototype.update = function(){
@@ -351,7 +359,12 @@ Block.prototype.rotate = function(){
 	}
 }
 
-Block.prototype.updateGraphics = function(rotated){
+/// An internal function to update the graphics.
+/// @param rotated Boolean. If the block is changed in a way that rotation is involved,
+///        pass true to this argument. It will recreate rectangle and outlines.
+/// @param forecast Boolean. If true, graphics are meant to be rendered for forecasting
+///        the next block.
+Block.prototype.updateGraphics = function(rotated, forecast){
 	/// An internal class that represents an edge of rectangle.
 	/// Used for outlining compound blocks.
 	function Edge(base, dir){
@@ -371,6 +384,8 @@ Block.prototype.updateGraphics = function(rotated){
 		var color;
 		if(controlled === this)
 			color = "#00ffaf";
+		else if(forecast)
+			color = "#7f7f7f";
 		else
 			color = "rgb(" + (this.eraseHint * 255).toFixed() + ", 0, 191)";
 
@@ -382,81 +397,84 @@ Block.prototype.updateGraphics = function(rotated){
 				g.rect(this.subblocks[i].l, this.subblocks[i].t, this.subblocks[i].r - this.subblocks[i].l, this.subblocks[i].b - this.subblocks[i].t);
 			}
 
-			// Enumerate edges of subblocks to trace union of the edges in this
-			// block.
-			var edges = [];
-			for(var i = 0; i < this.subblocks.length; i++){
-				var sb = this.subblocks[i];
-				edges.push(new Edge([sb.l, sb.t], [0, sb.b - sb.t]));
-				edges.push(new Edge([sb.l, sb.b], [sb.r - sb.l, 0]));
-				edges.push(new Edge([sb.r, sb.b], [0, sb.t - sb.b]));
-				edges.push(new Edge([sb.r, sb.t], [sb.l - sb.r, 0]));
-			}
-			g.setStrokeStyle(1);
-			g.beginStroke("#000000");
-			for(var i = 0; i < edges.length; i++){
-				var start = edges[i].base;
-				var end = edges[i].getEnd();
-				var skip = false;
-				for(var j = 0; j < edges.length; j++){
-					if(i === j)
-						continue;
-					var ndir = vecnorm(edges[i].dir);
-					var normal = [ndir[1], -ndir[0]]; // Vector normal to the direction
-
-					// There could be floating point error in vector aritmetics, so
-					// directly comparing values could yield unexpected result,
-					// but the coordinates are all integer.
-					if(veccross(edges[i].dir, edges[j].dir) === 0 && vecdot(edges[i].base, normal) === vecdot(edges[j].base, normal)){
-						var iStart = vecdot(start, ndir);
-						var iEnd = vecdot(end, ndir);
-						var jStart = vecdot(edges[j].base, ndir);
-						var jEnd = vecdot(edges[j].getEnd(), ndir);
-						var jDots = [jStart, jEnd];
-						var jPoints = [edges[j].base, edges[j].getEnd()];
-
-						// Sort the two arrays in ascending order.
-						// The edge from the outer loop (i) has two endpoints,
-						// whose dot products along the direction are iStart and iEnd.
-						// iEnd is always greater than iStart, but the endpoints
-						// of the edge from the inner loop (j) not necessarily does,
-						// so we need to sort the end points in
-						// consistent order to make the algorithms work.
-						// Array.sort() could not be used because the two arrays
-						// should be synchronized.
-						if(jEnd < jStart){
-							jDots.reverse();
-							jPoints.reverse();
-						}
-
-						// If the whole edge is contained in another edge,
-						// No parts of it should be rendered.
-						if(jDots[0] <= iStart && iEnd <= jDots[1])
-							skip = true;
-						// If, on the other hand, the edge containes another edge,
-						// we need two passes to draw segmented lines.
-						// Technically, there could be the case that we need
-						// 3 line segments or more to draw an edge (double T-junction),
-						// but it won't happen in current block generation algorithm.
-						else if(iStart <= jDots[0] && jDots[1] < iEnd){
-							// Draw the former line segment here, let the code
-							// outside this loop draw the latter one.
-							g.moveTo(start[0], start[1]).lineTo(jPoints[0][0], jPoints[0][1]);
-							start = jPoints[1];
-						}
-						else if(iStart <= jDots[0] && jDots[0] < iEnd)
-							end = jPoints[0];
-						else if(iStart <= jDots[1] && jDots[1] < iEnd)
-							start = jPoints[1];
-					}
+			if(!forecast){
+				// Enumerate edges of subblocks to trace union of the edges in this
+				// block.
+				var edges = [];
+				for(var i = 0; i < this.subblocks.length; i++){
+					var sb = this.subblocks[i];
+					edges.push(new Edge([sb.l, sb.t], [0, sb.b - sb.t]));
+					edges.push(new Edge([sb.l, sb.b], [sb.r - sb.l, 0]));
+					edges.push(new Edge([sb.r, sb.b], [0, sb.t - sb.b]));
+					edges.push(new Edge([sb.r, sb.t], [sb.l - sb.r, 0]));
 				}
-				if(!skip)
-					g.moveTo(start[0], start[1]).lineTo(end[0], end[1]);
+				g.setStrokeStyle(1);
+				g.beginStroke("#000000");
+				for(var i = 0; i < edges.length; i++){
+					var start = edges[i].base;
+					var end = edges[i].getEnd();
+					var skip = false;
+					for(var j = 0; j < edges.length; j++){
+						if(i === j)
+							continue;
+						var ndir = vecnorm(edges[i].dir);
+						var normal = [ndir[1], -ndir[0]]; // Vector normal to the direction
+
+						// There could be floating point error in vector aritmetics, so
+						// directly comparing values could yield unexpected result,
+						// but the coordinates are all integer.
+						if(veccross(edges[i].dir, edges[j].dir) === 0 && vecdot(edges[i].base, normal) === vecdot(edges[j].base, normal)){
+							var iStart = vecdot(start, ndir);
+							var iEnd = vecdot(end, ndir);
+							var jStart = vecdot(edges[j].base, ndir);
+							var jEnd = vecdot(edges[j].getEnd(), ndir);
+							var jDots = [jStart, jEnd];
+							var jPoints = [edges[j].base, edges[j].getEnd()];
+
+							// Sort the two arrays in ascending order.
+							// The edge from the outer loop (i) has two endpoints,
+							// whose dot products along the direction are iStart and iEnd.
+							// iEnd is always greater than iStart, but the endpoints
+							// of the edge from the inner loop (j) not necessarily does,
+							// so we need to sort the end points in
+							// consistent order to make the algorithms work.
+							// Array.sort() could not be used because the two arrays
+							// should be synchronized.
+							if(jEnd < jStart){
+								jDots.reverse();
+								jPoints.reverse();
+							}
+
+							// If the whole edge is contained in another edge,
+							// No parts of it should be rendered.
+							if(jDots[0] <= iStart && iEnd <= jDots[1])
+								skip = true;
+							// If, on the other hand, the edge containes another edge,
+							// we need two passes to draw segmented lines.
+							// Technically, there could be the case that we need
+							// 3 line segments or more to draw an edge (double T-junction),
+							// but it won't happen in current block generation algorithm.
+							else if(iStart <= jDots[0] && jDots[1] < iEnd){
+								// Draw the former line segment here, let the code
+								// outside this loop draw the latter one.
+								g.moveTo(start[0], start[1]).lineTo(jPoints[0][0], jPoints[0][1]);
+								start = jPoints[1];
+							}
+							else if(iStart <= jDots[0] && jDots[0] < iEnd)
+								end = jPoints[0];
+							else if(iStart <= jDots[1] && jDots[1] < iEnd)
+								start = jPoints[1];
+						}
+					}
+					if(!skip)
+						g.moveTo(start[0], start[1]).lineTo(end[0], end[1]);
+				}
 			}
 		}
 		else{
 			g.setStrokeStyle(1);
-			g.beginStroke("#000000");
+			if(!forecast)
+				g.beginStroke("#000000");
 			g.beginFill(color);
 			g.rect(0, 0, this.getW(), this.getH());
 		}
@@ -699,13 +717,14 @@ function getAt(p, ig){
 
 function spawnNextBlock(){
 	var retries = 0;
-	do{
+	while(getAt(nextBlock, -1) !== block_list.length){
 		if(100 < retries++)
 			break;
 		nextBlock.set(rs.nexti() % (width - MIN_BLOCK_WIDTH - nextBlock.getW()),
 			rs.nexti() % (height / 4 - MIN_BLOCK_HEIGHT - nextBlock.getH()));
-	} while(getAt(nextBlock, -1) !== block_list.length);
+	}
 	controlled = nextBlock;
+	underlay.removeChild(nextBlock.shape);
 	nextBlock.initGraphics();
 	block_list.push(nextBlock);
 
@@ -788,6 +807,9 @@ function setNextBlock(){
 		for(var i = 0; i < angle; i++)
 			nextBlock.rotate();
 	}
+
+	// Create forecast graphics
+	nextBlock.initGraphics(true);
 }
 
 
